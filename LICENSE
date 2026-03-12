@@ -1,0 +1,73 @@
+MIT License
+
+======================================================================
+本仓库版权说明 / Copyright notice for this repository
+======================================================================
+
+本仓库是 "TSM: Temporal Shift Module for Efficient Video Understanding"
+官方实现（https://github.com/mit-han-lab/temporal-shift-module ，MIT 许可）
+的衍生作品，并在其基础上针对 IPN-Hand 手势识别数据集做了改造与优化。
+
+This repository is a derivative work based on the official implementation of
+"TSM: Temporal Shift Module for Efficient Video Understanding"
+(https://github.com/mit-han-lab/temporal-shift-module , MIT licensed),
+adapted and optimized for the IPN-Hand gesture recognition dataset.
+
+----------------------------------------------------------------------
+原始作品版权 / Copyright of the original work
+----------------------------------------------------------------------
+  Copyright (c) 2021 MIT HAN Lab
+  （文件名带 TSM 版权头的部分：main.py、test_models.py、opts.py、
+    ops/dataset.py、ops/models.py、ops/dataset_config.py 的基础结构）
+
+  ops/non_local.py 中的 non-local block 来自
+  https://github.com/AlexHex7/Non-local_pytorch
+  （经 TSM 官方实现引入本仓库）
+
+----------------------------------------------------------------------
+本项目贡献者 / Contributors of this derivative work
+----------------------------------------------------------------------
+  Copyright (c) 2026 TangShuQiang <1579475776@qq.com>
+      初始版本：IPN-Hand 数据读取与标注解析（ops/dataset.py、
+      ops/dataset_config.py）、TSN/TSQ 模型搭建（ops/models.py）、
+      训练与测试入口（main.py、test_models.py）、运行脚本（scripts/）
+
+  Copyright (c) 2026 boundless-oceans <boundless-oceans@users.noreply.github.com>
+      在其基础上优化：CoordAtt 坐标注意力改造（按时序段数与特征图高度
+      动态生成 3x3 空间卷积核，取代固定深度可分离卷积）、时序模块改造
+      （ops/temporal_module.py）、训练改进（类别均衡采样、
+      训练水平翻转并同步对调左右方向类别标签、GroupColorJitter 颜色抖动、
+      DataLoader 随机种子、优化阈值打印）、模型加载兼容 torch>=2.6
+      （ops/utils.py 的 load_checkpoint）、README 与 environment.yml
+
+  优化部分的详细清单见 README.md 的「版权与致谢」一节。
+  注：本人提交使用 GitHub noreply 地址，以避免公开真实邮箱；
+      版权归属以作者姓名与 README 的贡献划分为准。
+
+======================================================================
+以下为 MIT 许可正文，适用于本仓库全部内容，并保留原始作品的版权声明。
+The MIT License below applies to the whole repository, and the copyright
+notice of the original work is hereby retained as required.
+======================================================================
+
+MIT License
+
+Copyright (c) 2021 MIT HAN Lab
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
