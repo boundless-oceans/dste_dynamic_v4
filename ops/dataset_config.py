@@ -5,7 +5,7 @@
 
 import os
 
-ROOT_DATASET = '/home/vis/datasets/'  # '/data/jilin/'
+ROOT_DATASET = '/home/vis/data/datasets/'  # 实际数据在 6TB 卷: /home/vis/data/datasets/
 
 
 def return_ucf101(modality):
