@@ -6,6 +6,11 @@
 import os
 import time
 import shutil
+import random
+
+import numpy as np
+import torchvision
+
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
@@ -16,7 +21,7 @@ from ops.models import TSN
 from ops.transforms import *
 from opts import parser
 from ops import dataset_config
-from ops.utils import AverageMeter, accuracy
+from ops.utils import AverageMeter, accuracy, load_checkpoint
 from ops.temporal_module import make_temporal_pool
 
 from tensorboardX import SummaryWriter
@@ -27,12 +32,23 @@ from torchsummary import summary
 best_prec1 = 0
 
 
-def main():
+def _init_worker(worker_id):
+    """给 DataLoader 每个 worker 独立的随机种子，训练可复现"""
+    seed = 1 + worker_id
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
 
-    torch.manual_seed(1)
+
+def main():
 
     global args, best_prec1
     args = parser.parse_args()
+
+    torch.manual_seed(1)
+    torch.cuda.manual_seed_all(1)
+    np.random.seed(1)
+    random.seed(1)
 
     num_class, args.train_list, args.val_list, args.root_path, prefix = dataset_config.return_dataset(args.dataset,
                                                                                                       args.modality)
@@ -73,6 +89,15 @@ def main():
                 fc_lr5=not (args.tune_from and args.dataset in args.tune_from),
                 temporal_pool=args.temporal_pool,
                 non_local=args.non_local)
+    
+    # # 计算模型的 FLOPs 和参数数量
+    # input_data = torch.randn(1, 24, 224, 224)
+    # from thop import profile
+    # flops, params = profile(model, inputs=(input_data,))
+    # print(f"Total FLOPs: {flops}, FLOPs (G): {flops / 1e9:.2f} GFLOPs")
+    # print(f"Total Parameters: {params}, Parameters (M): {params / 1e6:.2f} M")
+    # return
+
 
     crop_size = model.crop_size
     scale_size = model.scale_size
@@ -98,19 +123,19 @@ def main():
             make_temporal_pool(model.module.base_model, args.num_segments)
         if os.path.isfile(args.resume):
             print(("=> loading checkpoint '{}'".format(args.resume)))
-            checkpoint = torch.load(args.resume)
+            checkpoint = load_checkpoint(args.resume)
             args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             print(("=> loaded checkpoint '{}' (epoch {})"
-                   .format(args.evaluate, checkpoint['epoch'])))
+                   .format(args.resume, checkpoint['epoch'])))
         else:
             print(("=> no checkpoint found at '{}'".format(args.resume)))
 
     if args.tune_from:
         print(("=> fine-tuning from '{}'".format(args.tune_from)))
-        sd = torch.load(args.tune_from)
+        sd = load_checkpoint(args.tune_from)
         sd = sd['state_dict']
         model_dict = model.state_dict()
         replace_dict = []
@@ -155,19 +180,32 @@ def main():
 
 
     # 640 × 480
+    train_dataset = TSNDataSet(
+        args.root_path, args.train_list, num_segments=args.num_segments,
+        new_length=data_length,
+        modality=args.modality,
+        image_tmpl=prefix,
+        transform=torchvision.transforms.Compose([
+            train_augmentation,
+            GroupColorJitter(brightness=0.2, contrast=0.2),
+            Stack(roll=(args.arch in ['BNInception', 'InceptionV3'])),
+            ToTorchFormatTensor(div=(args.arch not in ['BNInception', 'InceptionV3'])),
+            normalize,
+            torchvision.transforms.RandomErasing(p=0.2),
+        ]), dense_sample=args.dense_sample)
+
+    # 类别均衡采样：提升稀有类（如双指双击）被抽中的概率
+    label_counts = {}
+    for s in train_dataset.data:
+        label_counts[s['label']] = label_counts.get(s['label'], 0) + 1
+    sample_weights = [1.0 / label_counts[s['label']] for s in train_dataset.data]
+    sampler = torch.utils.data.WeightedRandomSampler(
+        sample_weights, num_samples=len(train_dataset.data), replacement=True)
+
     train_loader = torch.utils.data.DataLoader(
-        TSNDataSet(args.root_path, args.train_list, num_segments=args.num_segments,
-                   new_length=data_length,
-                   modality=args.modality,
-                   image_tmpl=prefix,
-                   transform=torchvision.transforms.Compose([
-                       train_augmentation,
-                       Stack(roll=(args.arch in ['BNInception', 'InceptionV3'])),
-                       ToTorchFormatTensor(div=(args.arch not in ['BNInception', 'InceptionV3'])),
-                       normalize,
-                   ]), dense_sample=args.dense_sample),
-        batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True,
+        train_dataset,
+        batch_size=args.batch_size, sampler=sampler,
+        num_workers=args.workers, pin_memory=True, worker_init_fn=_init_worker,
         drop_last=True)  # prevent something not % n_GPU
 
     val_loader = torch.utils.data.DataLoader(
@@ -184,7 +222,7 @@ def main():
                        normalize,
                    ]), dense_sample=args.dense_sample),
         batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+        num_workers=args.workers, pin_memory=True, worker_init_fn=_init_worker)
 
     # define loss function (criterion) and optimizer
     if args.loss_type == 'nll':
@@ -295,7 +333,7 @@ def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
                       'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
                       'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
                 epoch, i, len(train_loader), batch_time=batch_time,
-                data_time=data_time, loss=losses, top1=top1, top5=top5, lr=optimizer.param_groups[-1]['lr'] * 0.1))  # TODO
+                data_time=data_time, loss=losses, top1=top1, top5=top5, lr=optimizer.param_groups[-1]['lr']))
             print(output)
             log.write(output + '\n')
             log.flush()

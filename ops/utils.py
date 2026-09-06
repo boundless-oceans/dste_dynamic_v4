@@ -1,5 +1,19 @@
 import numpy as np
 
+import torch
+
+
+def load_checkpoint(path, map_location=None):
+    """兼容 torch>=2.6 的安全加载。
+    checkpoint 内含 numpy 标量，torch>=2.6 默认 weights_only=True 会加载失败，
+    需显式 weights_only=False；老版本 torch 无此参数，捕获 TypeError 回退。
+    map_location 透传给 torch.load：GPU 服务器默认 None（按保存时的设备还原）；
+    若需在纯 CPU 机器上加载/调试，可传 torch.device('cpu')。"""
+    try:
+        return torch.load(path, map_location=map_location, weights_only=False)
+    except TypeError:
+        return torch.load(path, map_location=map_location)
+
 
 def softmax(scores):
     es = np.exp(scores - scores.max(axis=-1)[..., None])

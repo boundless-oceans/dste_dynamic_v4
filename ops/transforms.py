@@ -1,6 +1,6 @@
 import torchvision
 import random
-from PIL import Image, ImageOps
+from PIL import Image, ImageEnhance, ImageOps
 import numpy as np
 import numbers
 import math
@@ -296,6 +296,32 @@ class GroupRandomSizedCrop(object):
             scale = GroupScale(self.size, interpolation=self.interpolation)
             crop = GroupRandomCrop(self.size)
             return crop(scale(img_group))
+
+
+class GroupColorJitter(object):
+    """对一组帧用相同的随机参数做颜色/亮度/对比度抖动。
+    一组内参数一致，保证时序通道不引入额外噪声；用于增强对光照/背景的鲁棒性。
+    """
+
+    def __init__(self, brightness=0.2, contrast=0.2, saturation=0.0):
+        self.brightness = brightness
+        self.contrast = contrast
+        self.saturation = saturation
+
+    def __call__(self, img_group):
+        b = 1.0 + random.uniform(-self.brightness, self.brightness)
+        c = 1.0 + random.uniform(-self.contrast, self.contrast)
+        s = 1.0 + random.uniform(-self.saturation, self.saturation)
+        ret = []
+        for img in img_group:
+            if self.brightness > 0:
+                img = ImageEnhance.Brightness(img).enhance(b)
+            if self.contrast > 0:
+                img = ImageEnhance.Contrast(img).enhance(c)
+            if self.saturation > 0:
+                img = ImageEnhance.Color(img).enhance(s)
+            ret.append(img)
+        return ret
 
 
 class Stack(object):

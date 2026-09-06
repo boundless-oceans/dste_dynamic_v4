@@ -1,0 +1,48 @@
+# ============================================================
+# TSQ / IPN-Hand 训练环境定义（Ubuntu 22.04 + NVIDIA GPU）
+#
+# 创建环境：
+#   conda env create -f environment.yml
+# 更新依赖（代码升级后）：
+#   conda env update -f environment.yml
+# 查看 / 删除：
+#   conda env list / conda env remove -n ipnhand
+#
+# 说明：
+#   - 名称 ipnhand，python 3.10（与 Ubuntu 22.04 默认一致）。
+#   - pytorch-cuda=11.8 适用驱动 >= 520 的机器（绝大多数 2022 年后服务器）；
+#     若驱动较新（>= 525，支持 CUDA 12.x），可把下面三行改成：
+#         pytorch=2.4.1
+#         torchvision=0.19.1
+#         pytorch-cuda=12.1          # 或 12.4
+#   - 若服务器只有 CPU（仅调试用），改用：
+#         pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#     （训练仍需要 GPU：main.py 里 model.cuda()）
+# ============================================================
+name: ipnhand
+
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pip
+
+  # PyTorch GPU 版（pytorch-cuda 决定打包的 CUDA 运行时版本）
+  - pytorch=2.1.2
+  - torchvision=0.16.2
+  - pytorch-cuda=11.8
+
+  # 数值 / 图像 / 机器学习（torch 2.1 依赖 numpy 1.x，故钉住 1.26）
+  - numpy=1.26
+  - pillow
+  - scikit-learn          # test_models.py 画混淆矩阵用
+
+  # 训练日志可视化
+  - tensorboardx
+
+  - pip:
+      - torchsummary       # main.py 打印模型结构用

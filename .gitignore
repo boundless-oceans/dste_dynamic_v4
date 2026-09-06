@@ -1,0 +1,18 @@
+# Python
+# 注意：源仓库 init 曾误提交 ops/__pycache__/*.pyc，本仓库已全部清除，勿再提交
+__pycache__/
+*.py[cod]
+
+# 训练/测试日志与产物
+*.out
+log/
+cm.npy
+
+# 模型权重（体积大，通常本地保留、scp 传输，不进版本库）
+checkpoint/
+pretrained/
+
+# 编辑器/agent 目录
+.vscode/
+.agents/
+.codex/

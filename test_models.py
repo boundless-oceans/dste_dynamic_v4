@@ -15,6 +15,7 @@ from ops.dataset import TSNDataSet
 from ops.models import TSN
 from ops.transforms import *
 from ops import dataset_config
+from ops.utils import load_checkpoint
 from torch.nn import functional as F
 
 # options
@@ -147,7 +148,7 @@ for this_weights, this_test_segments, test_file in zip(weights_list, test_segmen
     #     from ours.idea2.ops.temporal_module import make_temporal_pool
     #     make_temporal_pool(net.base_model, this_test_segments)  # since DataParallel
 
-    checkpoint = torch.load(this_weights)
+    checkpoint = load_checkpoint(this_weights)
     checkpoint = checkpoint['state_dict']
 
     # base_dict = {('base_model.' + k).replace('base_model.fc', 'new_fc'): v for k, v in list(checkpoint.items())}

@@ -3,10 +3,12 @@
 # Ji Lin*, Chuang Gan, Song Han
 # {jilin, songhan}@mit.edu, ganchuang@csail.mit.edu
 
+import torch
 import torch.utils.data as data
 
 from PIL import Image
 import os
+import random
 import numpy as np
 from numpy.random import randint
 
@@ -124,6 +126,22 @@ class TSNDataSet(data.Dataset):
 
         # self._parse_list()
         self.data, self.class_names = make_dataset(root_path, list_file)
+
+        # 训练水平翻转：镜像会左右颠倒（视觉上左手变右手），缓解左右手样本不均衡。
+        # 关键：只有能自动识别出"向左/向右"配对时才翻转，否则镜像后的方向类会
+        # 携带错误标签（静默错误监督），宁可不翻。
+        self._lr_pair = self._find_lr_pair()
+        if self.random_shift and not self.test_mode:
+            if self._lr_pair is None:
+                print('WARNING: 无法自动识别"左右方向"类别配对，训练将【不做水平翻转】。')
+                print('  class_names =', self.class_names)
+                print('  如需翻转，请在 _find_lr_pair 中补充对真实类名的识别规则。')
+            else:
+                n0 = self.class_names.get(self._lr_pair[0], self._lr_pair[0])
+                n1 = self.class_names.get(self._lr_pair[1], self._lr_pair[1])
+                print('=> 训练水平翻转已启用：翻转时会把 类别{}[{}] <-> 类别{}[{}] 的标签对调。'
+                      .format(self._lr_pair[0], n0, self._lr_pair[1], n1))
+        self._do_hflip = self.random_shift and not self.test_mode and self._lr_pair is not None
 
     def _load_image(self, directory, idx):
         if self.modality == 'RGB' or self.modality == 'RGBDiff':
@@ -285,6 +303,19 @@ class TSNDataSet(data.Dataset):
         #     segment_indices = self._get_test_indices(record)
         return self.get(record, segment_indices)
 
+    def _find_lr_pair(self):
+        """自动识别'向左/向右'两个类别索引（供翻转时对调），找不到返回 None。
+        支持类名为 G05/G06 编码或含 left/right 的命名。"""
+        names = self.class_names  # {index: label_name}
+        if not names:
+            return None
+        idxs = []
+        for i, nm in names.items():
+            low = (nm or '').lower()
+            if 'left' in low or 'right' in low or low in ('g05', 'g06'):
+                idxs.append(i)
+        return (idxs[0], idxs[1]) if len(idxs) == 2 else None
+
     def get(self, record, indices):
         images = list()
         for seg_ind in indices:
@@ -296,7 +327,15 @@ class TSNDataSet(data.Dataset):
                     p += 1
 
         process_data = self.transform(images)
-        return process_data, record['label']
+        label = record['label']
+
+        # 训练水平翻转：整段 8 帧一起镜像，方向类标签对调
+        if self._do_hflip and random.random() < 0.5:
+            process_data = torch.flip(process_data, dims=[-1])
+            if self._lr_pair is not None and label in self._lr_pair:
+                label = self._lr_pair[1] if label == self._lr_pair[0] else self._lr_pair[0]
+
+        return process_data, label
 
     def __len__(self):
         return len(self.data)
