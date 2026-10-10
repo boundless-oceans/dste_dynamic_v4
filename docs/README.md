@@ -12,6 +12,9 @@
 | [03-model-forward.md](03-model-forward.md) | 模型前向：张量形状、时序模块、CoordAtt 动态卷积核 |
 | [04-train-loop.md](04-train-loop.md) | 训练回路：类别均衡采样、损失、日志、存档 |
 | [05-eval-pipeline.md](05-eval-pipeline.md) | 评测流程：多 clip × 多 crop 集成 |
+| [api/README.md](api/README.md) | **API 参考**：逐文件讲解每个类与函数 |
+
+> 两组文档互补：上面 5 篇讲**数据怎么流动**，[api/](api/README.md) 讲**代码里有什么**。
 
 ## 关键配置（本仓库脚本实际使用值）
 

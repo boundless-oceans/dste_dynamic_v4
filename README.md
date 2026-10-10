@@ -17,13 +17,14 @@ ops/
 scripts/
   train_tsq_ipnhand_rgb_8f.sh  # 训练脚本（自动激活 conda 环境）
   test_tsq_ipnhand_rgb_8f.sh   # 测试脚本（自动激活 conda 环境）
-docs/                          # 数据流图（Mermaid），见 docs/README.md
+docs/                          # 数据流图（Mermaid）+ API 参考，见 docs/README.md
 environment.yml                # conda 环境定义（环境名 ipnhand）
 checkpoint/.../ckpt.best.pth.tar  # 已训练好的权重（不上 git，scp 上传）
 ```
 
-> 想先搞清楚代码怎么跑通的，建议从 **[docs/ 数据流图](docs/README.md)** 看起：
-> 端到端总览 → 数据加载 → 模型前向 → 训练回路 → 评测流程，共 29 张 Mermaid 图。
+> 想先搞清楚代码怎么跑通的，建议从 **[docs/ 文档](docs/README.md)** 看起，共两份：
+> - **数据流图**（36 张 Mermaid）：端到端总览 → 数据加载 → 模型前向 → 训练回路 → 评测流程
+> - **[API 参考](docs/api/README.md)**：逐文件讲解每个类与函数的作用、参数与坑
 
 ## 服务器部署步骤
 

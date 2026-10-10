@@ -221,24 +221,42 @@ out = F.conv2d(
 - 表达能力：卷积核随输入变化，对「不同手势、不同运动幅度」更自适应
 - 约束：`in_h` 必须与特征图实际高度一致，因此需要 `h_list` 这张表
 
-### SpatialAttention（补充分支）
+### SpatialAttention（时间差分 + 空间自注意力）
 
-`TemporalModule` 末尾还有一个 `SpatialAttention`：
+`TemporalModule` 末尾还有一个 `SpatialAttention`。它**不是**卷积注意力，
+而是「先做帧间差分，再对空间位置做自注意力」：
 
 ```mermaid
-flowchart LR
-    A["x: [n, c, t, h, w]"] --> P1["max(dim=2)"]
-    A --> P2["mean(dim=2)"]
-    P1 --> CAT["concat → [n, 2, h, w]"]
-    P2 --> CAT
-    CAT --> C["Conv2d(2, 1, 7×7, padding=3)<br/>+ sigmoid"]
-    C --> ATTN["attn: [n, 1, h, w]"]
-    A --> RES["identity + identity × attn<br/>残差形式"]
-    ATTN --> RES
+flowchart TB
+    A["x: [n, c, t, h, w]"] --> DIFF["帧间差分<br/>x[:,:,1:] − x[:,:,:-1]<br/>→ [n, c, t−1, h, w]"]
+    DIFF --> MEAN["沿时间维取均值<br/>→ [n, c, h, w]（运动强度图）"]
+    MEAN --> NORM["GroupNorm(1, c)"]
+    NORM --> Q["q: 深度 1×1 卷积<br/>permute → [n, hw, c]"]
+    NORM --> K["k: 深度 1×1 卷积<br/>→ [n, c, hw]"]
+    NORM --> V["v: 深度 1×1 卷积<br/>permute → [n, hw, c]"]
+    Q --> ATT["matmul(q, k) × c^−0.5<br/>→ [n, hw, hw] 空间自注意力"]
+    K --> ATT
+    ATT --> SM["Softmax(-1) + Dropout(0.1)"]
+    SM --> MUL["matmul(attn, v)<br/>→ [n, hw, c]"]
+    V --> MUL
+    MUL --> RED["沿通道维取均值<br/>view(n,1,1,h,w)"]
+    RED --> OUT["identity + identity × attn<br/>残差形式"]
+    A --> OUT
+
+    classDef note fill:#f5f5f5,stroke:#9e9e9e,color:#424242
+    class DIFF,MEAN,ATT note
 ```
 
-它在时间维上池化，得到一个纯空间的 7×7 大核注意力，
-以残差形式叠加（`identity + identity × attn`），让模型关注手部所在的区域。
+两个设计意图：
+
+- **用帧间差分而非原始帧算注意力**：差分图突出「变化剧烈的区域」，也就是手部运动区域，
+  与手势识别的需求直接对应。
+- **残差形式施加**（`identity + identity × attn`）：初始时接近恒等映射，训练更稳定。
+
+注意力矩阵是 `hw × hw`，即每个空间位置与其他所有位置交互。
+这笔开销不小，但只在 `[n, c, h, w]`（时间维已聚合掉）上计算，可以接受。
+
+各子模块的详细签名见 [API 参考 · ops-temporal-module.md](api/ops-temporal-module.md#class-spatialattentionnnmodule-本仓库新增)。
 
 ## ConsensusModule：8 段如何合成一个预测
 
