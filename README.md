@@ -141,13 +141,26 @@ tail -f ipnhand_dste_train.out
 
 ## 性能表现
 
-以下数值为配套权重 `checkpoint/<store_name>/ckpt.best.pth.tar` 在 IPN-Hand 验证集上的实测结果
-（8 段 × 5 crop，多 clip 平均）：
+以下数值为配套权重
+`checkpoint/TSQ_ipnhand_RGB_resnet50_shift0.5_blockres_avg_segment8_e50/ckpt.best.pth.tar`
+在 IPN-Hand 验证集（1097 段手势，13 类）上的实测结果：
 
 | 指标 | 数值 |
 |---|---|
-| Overall Prec@1 | `TODO` |
-| Overall Prec@5 | `TODO` |
+| **Overall Prec@1** | **89.06%** |
+| **Overall Prec@5** | **99.27%** |
+| Class Accuracy（各类准确率的平均） | 83.44% |
+| 理论上界（每类取最优，`test_models.py` 的 `upper`） | 83.58% |
+
+评测口径：8 段 × 5 crop × 10 clip，共 400 次前向/样本，对 50 个预测取平均
+（`--test_segments=8 --test_crops=5 --multi_clip_test`）。
+
+各类准确率分布很宽（**48.08% ~ 100%**），说明类别不均衡确实存在 ——
+这正是训练时引入 `WeightedRandomSampler` 类别均衡采样的原因。
 
 > 复现方式：`bash scripts/test_tsq_ipnhand_rgb_8f.sh`，随后 `tail -n 30 ipnhand_dete_test.out`。
 > 权重体积较大未纳入版本库，需用 scp/rsync 单独上传。
+>
+> ⚠️ 上表是**测试口径**（多 clip 多 crop 集成）。训练日志里的 `Best Prec@1: 88.97`
+> 是**验证口径**（单 clip 单 crop），两者不可直接比较；这里数值接近是正常的，
+> 因为 `ckpt.best.pth.tar` 正是由验证口径选出的。

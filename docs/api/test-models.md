@@ -174,13 +174,20 @@ print('Overall Prec@1 {:.02f}% Prec@5 {:.02f}%'.format(top1.avg, top5.avg))
 **README 的性能表要填的就是最后这两行**：`Overall Prec@1` 与 `Overall Prec@5`。
 `cm.npy`（混淆矩阵）已在 `.gitignore` 中排除。
 
+本仓库权重的实测值：**`Overall Prec@1 89.06%`、`Prec@5 99.27%`、`Class Accuracy 83.44%`**
+（验证集 1097 段手势、13 类，平均 0.385 秒/样本）。
+
+`upper` 是「每类都取该类最大预测数」得到的**理论上界**（本仓库为 0.8358），
+可用来判断混淆矩阵本身是否合理：若它远大于实际 `Class Accuracy`，
+说明预测分布过于集中在少数类别。
+
 另外 `--csv_file` 可把逐样本预测导出成 CSV（需要 `--test_list` 提供视频名清单）。
 
 ---
 
 ## 与 `main.py` 内验证的差异
 
-两者数字**不可直接比较**，测试脚本通常更高：
+两者口径不同，**不可直接比较**：
 
 | | `main.py` 的 `validate()` | `test_models.py` |
 |---|---|---|
@@ -189,5 +196,11 @@ print('Overall Prec@1 {:.02f}% Prec@5 {:.02f}%'.format(top1.avg, top5.avg))
 | BN | `model.eval()` | `net.eval()` |
 | 融合 | 仅 8 段 avg | 8 段 avg → 50 预测再平均 |
 | 用途 | 每轮挑 best 模型 | 最终报告数字 |
+
+本仓库实测：验证口径 `Best Prec@1 = 88.97`，测试口径 `Overall Prec@1 = 89.06`
+（+0.09）。两者接近是合理的 —— 因为 `ckpt.best.pth.tar` 正是由前者选出的，
+而后者在同一权重上叠加了更多 clip/crop 的集成，通常只会略高。
+注意训练日志里的逐轮 `Testing Results: Prec@1 87.x ~ 88.x` 比 `Best Prec@1` 低，
+那是每轮的即时结果，不是最优权重的结果。
 
 **建议 README 中的性能表统一以本脚本的结果为准。**
